@@ -49,27 +49,32 @@ public enum Planet: Int32 {
     
 	/// The name of the planet formatted with the `symbol`.
     public var formatted: String {
+        return "\(keyName) \(symbol)"
+    }
+
+    /// The key name of the planet without its associated `symbol`.
+    public var keyName: String {
         switch self {
         case .sun:
-            return "☉ Sun"
+            return "Sun"
         case .moon:
-            return "☾ Moon"
+            return "Moon"
         case .mercury:
-            return "☿ Mercury"
+            return "Mercury"
         case .venus:
-            return "♀ Venus"
+            return "Venus"
         case .mars:
-            return "♂️Mars"
+            return "Mars"
         case .jupiter:
-            return "♃ Jupiter"
+            return "Jupiter"
         case .saturn:
-            return "♄ Saturn"
+            return "Saturn"
         case .uranus:
-            return "♅ Uranus"
+            return "Uranus"
         case .neptune:
-            return "♆ Neptune"
+            return "Neptune"
         case .pluto:
-            return "♇ Pluto"
+            return "Pluto"
         }
     }
 }
@@ -78,4 +83,8 @@ public enum Planet: Int32 {
 
 extension Planet: CelestialBody {
 	public var value: Int32 { rawValue }
+
+    public var celestialObject: CelestialObject {
+        return .planet(self)
+    }
 }

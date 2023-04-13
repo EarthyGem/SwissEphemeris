@@ -13,6 +13,10 @@ public struct HouseCusps {
 
     /// The time at which the house system is valid
     public let date: Date
+    /// The latitude of the house system
+    public let latitude: Double
+    /// The longitude of the house system
+    public let longitude: Double
     /// The pointer passed into `set_house_system(julianDate, latitude, longitude, ascendentPointer, cuspPointer)`
     /// `ascPointer` argument
     private let ascendentPointer = UnsafeMutablePointer<Double>.allocate(capacity: 10)
@@ -48,7 +52,38 @@ public struct HouseCusps {
     public let eleventh: Cusp
     /// Cusp between the eleventh and twelfth house
     public let twelfth: Cusp
-	
+
+    /// Array of House Cusps, by numerical order
+    public let houses: [Cusp]
+
+    /// Sign of Aries with starting degree
+    public let aries: Sign
+    /// Sign of Taurus with starting degree
+    public let taurus: Sign
+    /// Sign of Gemini with starting degree
+    public let gemini: Sign
+    /// Sign of Cancer with starting degree
+    public let cancer: Sign
+    /// Sign of Leo with starting degree
+    public let leo: Sign
+    /// Sign of Virgo with starting degree
+    public let virgo: Sign
+    /// Sign of Libra with starting degree
+    public let libra: Sign
+    /// Sign of Scorpio with starting degree
+    public let scorpio: Sign
+    /// Sign of Sagittarius with starting degree
+    public let sagittarius: Sign
+    /// Sign of Capricorn with starting degree
+    public let capricorn: Sign
+    /// Sign of Aquarius with starting degree
+    public let aquarius: Sign
+    /// Sign of Pisces with starting degree
+    public let pisces: Sign
+
+    /// Array of House Signs, by Zodiac order
+    public let signs: [Sign]
+
 	/// The preferred initializer
 	/// - Parameters:
 	///   - date: The date for the houses to be laid out
@@ -64,20 +99,84 @@ public struct HouseCusps {
 			ascendentPointer.deallocate()
 		}
         self.date = date
+        self.latitude = latitude
+        self.longitude = longitude
 		swe_houses(date.julianDate(), latitude, longitude, houseSystem.rawValue, cuspPointer, ascendentPointer);
-		ascendent = Cusp(value: ascendentPointer[0], date: date)
-		midHeaven = Cusp(value: ascendentPointer[1], date: date)
-		first = Cusp(value: cuspPointer[1], date: date)
-		second = Cusp(value: cuspPointer[2], date: date)
-		third = Cusp(value: cuspPointer[3], date: date)
-		fourth =  Cusp(value: cuspPointer[4], date: date)
-		fifth = Cusp(value: cuspPointer[5], date: date)
-		sixth = Cusp(value: cuspPointer[6], date: date)
-		seventh = Cusp(value: cuspPointer[7], date: date)
-		eighth =  Cusp(value: cuspPointer[8], date: date)
-		ninth =  Cusp(value: cuspPointer[9], date: date)
-		tenth = Cusp(value: cuspPointer[10], date: date)
-		eleventh = Cusp(value: cuspPointer[11], date: date)
-		twelfth =  Cusp(value: cuspPointer[12], date: date)
+        ascendent = Cusp(value: ascendentPointer[0], name: "ascendant", number: 1)
+        midHeaven = Cusp(value: ascendentPointer[1], name: "midheaven", number: 10)
+        first = Cusp(value: cuspPointer[1], name: "first", number: 1)
+        second = Cusp(value: cuspPointer[2], name: "second", number: 2)
+        third = Cusp(value: cuspPointer[3], name: "third", number: 3)
+        fourth =  Cusp(value: cuspPointer[4], name: "fourth", number: 4)
+        fifth = Cusp(value: cuspPointer[5], name: "fifth", number: 5)
+        sixth = Cusp(value: cuspPointer[6], name: "sixth", number: 6)
+        seventh = Cusp(value: cuspPointer[7], name: "seventh", number: 7)
+        eighth =  Cusp(value: cuspPointer[8], name: "eighth", number: 8)
+        ninth =  Cusp(value: cuspPointer[9], name: "ninth", number: 9)
+        tenth = Cusp(value: cuspPointer[10], name: "tenth", number: 10)
+        eleventh = Cusp(value: cuspPointer[11], name: "eleventh", number: 11)
+        twelfth =  Cusp(value: cuspPointer[12], name: "twelfth", number: 12)
+
+        houses = [
+            first, second, third, fourth, fifth, sixth,
+            seventh, eighth, ninth, tenth, eleventh, twelfth
+        ]
+
+        let origin = 360.0 - ascendent.value
+        aries = Sign(value: origin, houseNumber: 0)
+        taurus = Sign(value: origin + 30.0, houseNumber: 1)
+        gemini = Sign(value: origin + 60.0, houseNumber: 2)
+        cancer = Sign(value: origin + 90.0, houseNumber: 3)
+        leo = Sign(value: origin + 120.0, houseNumber: 4)
+        virgo = Sign(value: origin + 150.0, houseNumber: 5)
+        libra = Sign(value: origin + 180.0, houseNumber: 6)
+        scorpio = Sign(value: origin + 210.0, houseNumber: 7)
+        sagittarius = Sign(value: origin + 240.0, houseNumber: 8)
+        capricorn = Sign(value: origin + 270.0, houseNumber: 9)
+        aquarius = Sign(value: origin + 300.0, houseNumber: 10)
+        pisces = Sign(value: origin + 330.0, houseNumber: 11)
+
+        signs = [
+            aries, taurus, gemini, cancer, leo, virgo,
+            libra, scorpio, sagittarius, capricorn, aquarius, pisces
+        ]
     }
+
+    public func cuspForLongitude(_ coordinate: Double) -> Cusp? {
+        guard (0.0..<360.0).contains(coordinate) else { return nil }
+        let offsetHouses = Array(houses.dropFirst()) + [first]
+
+        let cusp: Cusp? = zip(houses, offsetHouses)
+            .first { (current, next) in
+                let sector = (current < next) ? current.value..<next.value : (current.value - 360.0)..<next.value
+                let newLongitude = (current < next) ? coordinate : ((coordinate > current.value) ? (coordinate - 360.0) : coordinate)
+                return sector.contains(newLongitude)
+            }
+            .map { $0.0 }
+
+        return cusp
+    }
+
+    public func rulersForCusp(_ cusp: Cusp) -> [Planet] {
+        let standardRulers: [ Zodiac: [Planet] ] = [
+            .aries : [.mars],
+            .taurus : [.venus],
+            .gemini : [.mercury],
+            .cancer : [.moon],
+            .leo : [.sun],
+            .virgo : [.mercury],
+            .libra : [.venus],
+            .scorpio : [.mars, .pluto],
+            .sagittarius : [.jupiter],
+            .capricorn : [.saturn],
+            .aquarius : [.saturn, .uranus],
+            .pisces : [.jupiter, .neptune]
+        ]
+
+        let houseRulers = standardRulers[cusp.sign]!
+        return houseRulers
+    }
+
+
+
 }
