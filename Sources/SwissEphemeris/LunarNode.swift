@@ -36,7 +36,7 @@ public enum LunarNode: Int32 {
         case .trueNode:
             return "True North Node"
         case .meanSouthNode:
-            return "Mean South Node"
+            return "S.Node"
         case .trueSouthNode:
             return "True South Node"
         }

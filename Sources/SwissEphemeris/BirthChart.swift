@@ -37,7 +37,7 @@ public struct BirthChart {
 
     public let pluto: Coordinate
 
-    public let northNode: Coordinate
+//    public let northNode: Coordinate
 
     public let southNode: Coordinate
 
@@ -66,7 +66,7 @@ public struct BirthChart {
         pluto = Coordinate(body: Planet.pluto.celestialObject, date: date)
         ascendant = Coordinate(body: Planet.pluto.celestialObject, date: date)
         midheaven = Coordinate(body: Planet.pluto.celestialObject, date: date)
-        northNode = Coordinate(body: LunarNode.meanNode.celestialObject, date: date)
+//        northNode = Coordinate(body: LunarNode.meanNode.celestialObject, date: date)
         southNode = Coordinate(body: LunarNode.meanSouthNode.celestialObject, date: date)
 
         planets = [
@@ -83,7 +83,7 @@ public struct BirthChart {
         ]
 
         lunarNodes = [
-            northNode,
+//            northNode,
             southNode
         ]
 
@@ -98,7 +98,7 @@ public struct BirthChart {
             uranus,
             neptune,
             pluto,
-            northNode,
+//            northNode,
             southNode,
            
         ]
