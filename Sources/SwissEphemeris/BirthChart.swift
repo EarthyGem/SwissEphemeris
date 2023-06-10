@@ -513,6 +513,46 @@ public enum TransitKind {
     }
 }
 
+
+extension BirthChart {
+    public func signOnEachCusp() -> [Zodiac] {
+        return houseCusps.houses.map { signForCusp($0) }
+    }
+    
+    public func interceptedSignsInEachHouse() -> [[Zodiac]] {
+        return (1...12).map { interceptedSignsForHouse($0) }
+    }
+    
+    private func signForCusp(_ cusp: Cusp) -> Zodiac {
+        let normalizedValue = (cusp.value.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
+        let zodiacIndex = Int(normalizedValue / 30)
+        return Zodiac(rawValue: zodiacIndex)!
+    }
+    
+    private func interceptedSignsForHouse(_ house: Int) -> [Zodiac] {
+        let cusp1 = houseCusps.houses[(house - 1) % 12] // Using modulo to wrap around at the end
+        let cusp2 = houseCusps.houses[house % 12]
+        
+        let sign1 = signForCusp(cusp1)
+        let sign2 = signForCusp(cusp2)
+        
+        // Calculate the difference between signs. If it's 2 or more, there's an intercepted sign.
+        var signDifference = sign2.rawValue - sign1.rawValue
+        if signDifference < 0 {
+            signDifference += 12 // Add 12 if the result is negative to correct for wrap-around.
+        }
+        
+        if signDifference >= 2 {
+            // If there's an intercepted sign, return an array with the sign after `sign1` (wrap-around corrected)
+            return [(Zodiac(rawValue: (sign1.rawValue + 1) % 12))!]
+        } else {
+            // If there's no intercepted sign, return an empty array
+            return []
+        }
+    }
+}
+
+
 /*
 extension BirthChart {
     public static var aspectTransits: [CelestialObject : (dateType: Date.DateComponentType, amount: Int)] {

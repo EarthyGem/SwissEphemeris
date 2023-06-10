@@ -8,7 +8,7 @@ final class FixedStarsTests: XCTestCase {
 	}
 	
 	func testGalacticCenter() {
-		let galacticCenter = Coordinate<FixedStar>(body: .galacticCenter, date: Mock.date)
+        let galacticCenter = Coordinate(body: .galacticCenter, date: Mock.date)
 		XCTAssertEqual(galacticCenter.tropical.formatted, "26 Degrees Sagittarius ♐︎ 40' 39''")
 	}
 	
