@@ -228,6 +228,24 @@ public var allAspects: [CelestialAspect]? {
           
         ]
     }
+    
+    public func snapshotOfProgressedBodies(for date: Date) -> [Coordinate] {
+        return [
+            Coordinate(body: Planet.sun.celestialObject, date: date),
+            Coordinate(body: Planet.moon.celestialObject, date: date),
+            Coordinate(body: Planet.mercury.celestialObject, date: date),
+            Coordinate(body: Planet.venus.celestialObject, date: date),
+            Coordinate(body: Planet.mars.celestialObject, date: date),
+            Coordinate(body: Planet.jupiter.celestialObject, date: date),
+            Coordinate(body: Planet.saturn.celestialObject, date: date),
+            Coordinate(body: Planet.uranus.celestialObject, date: date),
+            Coordinate(body: Planet.neptune.celestialObject, date: date),
+            Coordinate(body: Planet.pluto.celestialObject, date: date),
+            Coordinate(body: LunarNode.meanNode.celestialObject, date: date),
+            Coordinate(body: LunarNode.meanSouthNode.celestialObject, date: date),
+          
+        ]
+    }
 
     public func snapshotOfPlanets(for date: Date) -> [Coordinate] {
         return [
@@ -550,7 +568,326 @@ extension BirthChart {
             return []
         }
     }
+    
+    public func progressedAspects(for natalBody: Coordinate, on date: Date, with orb: Double = 1.0) -> [CelestialAspect]? {
+        let bodies = snapshotOfProgressedBodies(for: date)
+        var aspects = [CelestialAspect]()
+
+        for Pbody in bodies {
+            if let ca = CelestialAspect(body1: Pbody, body2: natalBody, orb: orb) {
+                aspects.append(ca)
+            }
+        }
+
+        return aspects.count > 0 ? aspects : nil
+    }
+
+    public func progressionType(for Pbody: CelestialObject, with natalBody: Coordinate, on date: Date, orb: Double = 1.0) -> Kind? {
+        let bodyCoordinate = Coordinate(body: Pbody, date: date)
+        if let a = CelestialAspect(body1: bodyCoordinate, body2: natalBody, orb: orb) {
+            return a.kind
+        }
+
+        return nil
+    }
+
+public enum ProgressionKind {
+    case conjunction
+    case sextile
+    case square
+    case trine
+    case opposition
+    case semisextile
+    case semisquare
+    case sesquisquare
+    case inconjunction
+    case parallel(ParallelKind)
+
+    public enum ParallelKind {
+        case parallel
+        case contraParallel
+    }
 }
+
+   public func progressionType(for Pbody: CelestialObject, with cusp: Cusp, on date: Date, orb: Double = 1.0) -> TransitKind? {
+    let bodyCoordinate = Coordinate(body: Pbody, date: date)
+    if let a = Aspect(a: bodyCoordinate.longitude, b: cusp.value) {
+        switch a {
+        case .conjunction(_):
+            return .conjunction
+        case .sextile(_):
+            return .sextile
+        case .semisextile(_):
+            return .semisextile
+        case .semisquare(_):
+            return .semisquare
+        case .square(_):
+            return .square
+        case .trine(_):
+            return .trine
+        case .sesquisquare(_):
+            return .sesquisquare
+        case .inconjunction(_):
+            return .inconjunction
+        case .opposition(_):
+            return .opposition
+        case .parallel(_):
+            return .parallel(.parallel) // replace .conjunction with the appropriate value
+        }
+    }
+
+    return nil
+}
+
+ 
+
+    public func transitToProgressionCoordinates(for TBody1: CelestialObject, with PBody: CelestialObject, on date: Date, orb: Double = 1.0) -> (first: Coordinate, last: Coordinate)? {
+        precondition(TBody1 != PBody, "Celestial Objects cannot be the same")
+        precondition(TBody1 != .all, "All is not allowed")
+        precondition(PBody != .all, "All is not allowed")
+        precondition(TBody1 != .noBody, "No Body is not allowed")
+        precondition(PBody != .noBody, "No Body is not allowed")
+
+        guard let a = CelestialAspect(body1: TBody1, body2: PBody, date: date, orb: orb) else {
+            return nil;
+        }
+
+        var yesterday: CelestialAspect? = a
+        var tomorrow: CelestialAspect? = a
+        var dayBefore = date
+        var dayAfter = date
+
+        while yesterday != nil {
+            dayBefore = dayBefore.offset(.day, value: -1)!
+            let yesterdayTBody = Coordinate(body: TBody1, date: dayBefore)
+            let yesterdayOTBody = Coordinate(body: PBody, date: dayBefore)
+            yesterday = CelestialAspect(body1: yesterdayTBody, body2: yesterdayOTBody, orb: orb)
+        }
+
+        while tomorrow != nil {
+            dayAfter = dayAfter.offset(.day, value: 1)!
+            let tomorrowTBody = Coordinate(body: TBody1, date: dayAfter)
+            let tomorrowOTBody = Coordinate(body: PBody, date: dayAfter)
+            tomorrow = CelestialAspect(body1: tomorrowTBody, body2: tomorrowOTBody, orb: orb)
+        }
+
+        let beforeFirstDay = dayBefore
+        let firstDay = dayBefore.offset(.day, value: 1)!
+
+        var TBodyPositions = BodiesRequest(body: TBody1).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        var OTBodyPositions = BodiesRequest(body: PBody).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        let starting = zip(TBodyPositions, OTBodyPositions)
+            .first { (TBodyNow, OTBodyNow) in
+                let a = CelestialAspect(body1: TBodyNow, body2: OTBodyNow, orb: orb)
+                return a != nil
+            }
+
+        let afterLastDay = dayAfter
+        let lastDay = dayAfter.offset(.day, value: -1)!
+        TBodyPositions = BodiesRequest(body: TBody1).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        OTBodyPositions = BodiesRequest(body: PBody).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        let ending = Array(zip(TBodyPositions, OTBodyPositions))
+            .last { (TBodyNow, OTBodyNow) in
+                let a = CelestialAspect(body1: TBodyNow, body2: OTBodyNow, orb: orb)
+                return a != nil
+            }
+
+        let TBodyStart = starting!.0
+        let TBodyEnd = ending!.0
+        return (TBodyStart, TBodyEnd)
+    }
+
+    
+    public func progressionToProgressionCoordinates(for PBody1: CelestialObject, with PBody2: CelestialObject, on date: Date, orb: Double = 1.0) -> (first: Coordinate, last: Coordinate)? {
+        precondition(PBody1 != PBody2, "Celestial Objects cannot be the same")
+        precondition(PBody1 != .all, "All is not allowed")
+        precondition(PBody2 != .all, "All is not allowed")
+        precondition(PBody1 != .noBody, "No Body is not allowed")
+        precondition(PBody2 != .noBody, "No Body is not allowed")
+
+        guard let a = CelestialAspect(body1: PBody1, body2: PBody2, date: date, orb: orb) else {
+            return nil;
+        }
+
+        var yesterday: CelestialAspect? = a
+        var tomorrow: CelestialAspect? = a
+        var dayBefore = date
+        var dayAfter = date
+
+        while yesterday != nil {
+            dayBefore = dayBefore.offset(.day, value: -1)!
+            let yesterdayPBody = Coordinate(body: PBody1, date: dayBefore)
+            let yesterdayOPBody = Coordinate(body: PBody2, date: dayBefore)
+            yesterday = CelestialAspect(body1: yesterdayPBody, body2: yesterdayOPBody, orb: orb)
+        }
+
+        while tomorrow != nil {
+            dayAfter = dayAfter.offset(.day, value: 1)!
+            let tomorrowPBody = Coordinate(body: PBody1, date: dayAfter)
+            let tomorrowOPBody = Coordinate(body: PBody2, date: dayAfter)
+            tomorrow = CelestialAspect(body1: tomorrowPBody, body2: tomorrowOPBody, orb: orb)
+        }
+
+        let beforeFirstDay = dayBefore
+        let firstDay = dayBefore.offset(.day, value: 1)!
+
+        var PBodyPositions = BodiesRequest(body: PBody1).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        var OPBodyPositions = BodiesRequest(body: PBody2).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        let starting = zip(PBodyPositions, OPBodyPositions)
+            .first { (PBodyNow, OPBodyNow) in
+                let a = CelestialAspect(body1: PBodyNow, body2: OPBodyNow, orb: orb)
+                return a != nil
+            }
+
+        let afterLastDay = dayAfter
+        let lastDay = dayAfter.offset(.day, value: -1)!
+        PBodyPositions = BodiesRequest(body: PBody1).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        OPBodyPositions = BodiesRequest(body: PBody2).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        let ending = Array(zip(PBodyPositions, OPBodyPositions))
+            .last { (PBodyNow, OPBodyNow) in
+                let a = CelestialAspect(body1: PBodyNow, body2: OPBodyNow, orb: orb)
+                return a != nil
+            }
+
+        let PBodyStart = starting!.0
+        let PBodyEnd = ending!.0
+        return (PBodyStart, PBodyEnd)
+    }
+
+
+    public func progressedCoordinates(for progressedBody: CelestialObject, with natalBody: Coordinate, on date: Date, orb: Double = 1.0) -> (first: Coordinate, last: Coordinate)? {
+        precondition(progressedBody != .all, "All is not allowed")
+        precondition(progressedBody != .noBody, "No Body is not allowed")
+
+        let TBody = Coordinate(body: progressedBody, date: date)
+        guard let a = CelestialAspect(body1: TBody, body2: natalBody, orb: orb) else {
+            return nil
+        }
+
+        var yesterday: CelestialAspect? = a
+        var tomorrow: CelestialAspect? = a
+        var dayBefore = date
+        var dayAfter = date
+
+        while yesterday != nil {
+            dayBefore = dayBefore.offset(.day, value: -1)!
+            let yesterdayTBody = Coordinate(body: TBody.body, date: dayBefore)
+            yesterday = CelestialAspect(body1: yesterdayTBody, body2: natalBody, orb: orb)
+        }
+
+        while tomorrow != nil {
+            dayAfter = dayAfter.offset(.day, value: 1)!
+            let tomorrowTBody = Coordinate(body: TBody.body, date: dayAfter)
+            tomorrow = CelestialAspect(body1: tomorrowTBody, body2: natalBody, orb: orb)
+        }
+
+        let beforeFirstDay = dayBefore
+        let firstDay = dayBefore.offset(.day, value: 1)!
+        let afterLastDay = dayAfter
+        let lastDay = dayAfter.offset(.day, value: -1)!
+
+        var positions = BodiesRequest(body: TBody.body).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        let starting = positions.first { now in
+            let a = Aspect(bodyA: now, bodyB: natalBody, orb: orb)
+            return a != nil
+        }
+
+        positions = BodiesRequest(body: TBody.body).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        let ending = positions.last { now in
+            let a = Aspect(bodyA: now, bodyB: natalBody, orb: orb)
+            return a != nil
+        }
+
+        return (starting, ending) as? (first: Coordinate, last: Coordinate)
+    }
+
+    public func progressedCoordinates(for progressedBody: CelestialObject, with cusp: Cusp, on date: Date, orb: Double = 1.0) -> (first: Coordinate, last: Coordinate)? {
+        precondition(progressedBody != .all, "All is not allowed")
+        precondition(progressedBody != .noBody, "No Body is not allowed")
+        let PBody = Coordinate(body: progressedBody, date: date)
+        guard let a = Aspect(body: PBody, cusp: cusp, orb: orb) else {
+            return nil
+        }
+
+        var yesterday: Aspect? = a
+        var tomorrow: Aspect? = a
+        var dayBefore = date
+        var dayAfter = date
+
+        while yesterday != nil {
+            dayBefore = dayBefore.offset(.day, value: -1)!
+            let yesterdayPBody = Coordinate(body: PBody.body, date: dayBefore)
+            yesterday = Aspect(body: yesterdayPBody, cusp: cusp, orb: orb)
+        }
+
+        while tomorrow != nil {
+            dayAfter = dayAfter.offset(.day, value: 1)!
+            let tomorrowBBody = Coordinate(body: PBody.body, date: dayAfter)
+            tomorrow = Aspect(body: tomorrowBBody, cusp: cusp, orb: orb)
+        }
+
+        let beforeFirstDay = dayBefore
+        let firstDay = dayBefore.offset(.day, value: 1)!
+        let afterLastDay = dayAfter
+        let lastDay = dayAfter.offset(.day, value: -1)!
+
+        var positions = BodiesRequest(body: PBody.body).fetch(start: beforeFirstDay, end: firstDay, interval: TimeSlice.minute.slice)
+        let starting = positions.first { now in
+            let a = CuspAspect(body: now, cusp: cusp, orb: orb)
+            return a != nil
+        }
+
+        positions = BodiesRequest(body: PBody.body).fetch(start: lastDay, end: afterLastDay, interval: TimeSlice.minute.slice)
+        let ending = positions.last { now in
+            let a = CuspAspect(body: now, cusp: cusp, orb: orb)
+            return a != nil
+        }
+
+        return (starting, ending) as? (first: Coordinate, last: Coordinate)
+    }
+
+    public func findNextProgressedAspect(for body: CelestialObject, with natal: Coordinate, on date: Date, with orb: Double = 1.0) -> (aspect: CelestialAspect, start: Coordinate, end: Coordinate) {
+        let PBody = Coordinate(body: body, date: date)
+        if let a = CelestialAspect(body1: PBody, body2: natal, orb: orb) {
+            let tuple = self.transitingCoordinates(for: body, with: natal, on: date, orb: orb)
+            return (a, tuple!.first, tuple!.last)
+        }
+
+        var aspect: CelestialAspect?
+        var tomorrow = date
+
+        while aspect == nil {
+            tomorrow = tomorrow.offset(.day, value: 1)!
+            let tomorrowPBody = Coordinate(body: PBody.body, date: tomorrow)
+            aspect = CelestialAspect(body1: tomorrowPBody, body2: natal, orb: orb)
+        }
+
+        let tuple = self.transitingCoordinates(for: body, with: natal, on: tomorrow, orb: orb)
+        return (aspect!, tuple!.first, tuple!.last)
+    }
+
+    public func findProgressedNextAspect(for body: CelestialObject, with cusp: Cusp, on date: Date, with orb: Double = 1.0) -> (aspect: CuspAspect, start: Coordinate, end: Coordinate) {
+        let PBody = Coordinate(body: body, date: date)
+        if let a = CuspAspect(body: PBody, cusp: cusp, orb: orb) {
+            let tuple = self.progressedCoordinates(for: body, with: cusp, on: date, orb: orb)
+            return (a, tuple!.first, tuple!.last)
+        }
+
+        var aspect: CuspAspect?
+        var tomorrow = date
+
+        while aspect == nil {
+            tomorrow = tomorrow.offset(.day, value: 1)!
+            let tomorrowPBody = Coordinate(body: PBody.body, date: tomorrow)
+            aspect = CuspAspect(body: tomorrowPBody, cusp: cusp, orb: orb)
+        }
+
+        let tuple = self.progressedCoordinates(for: body, with: cusp, on: tomorrow, orb: orb)
+        return (aspect!, tuple!.first, tuple!.last)
+    }
+}
+
+
 
 
 /*
